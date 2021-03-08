@@ -9,7 +9,7 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 ```{r}
 library(dplyr)
 
-data <- read.csv("C:\\Users\\Andrej\\Documents\\spotifyMusicPredictor\\dataset\\data.csv")
+data <- read.csv(".\\dataset\\data.csv")
 ```
 
 ```{r}
