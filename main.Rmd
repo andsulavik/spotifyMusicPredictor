@@ -3,9 +3,10 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+```{r}
+install.packages("corrplot")
+```
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 ```{r}
 library(dplyr)
 
@@ -13,13 +14,40 @@ data <- read.csv(".\\dataset\\data.csv")
 ```
 
 ```{r}
-print(names(data))
+glimpse(data)
+unique(is.na(data))
+```
+Dataset neobsahuje ziadne NaN hodnoty.
+```{r}
+rel_date_data = data.frame(chr=apply(data,2,nchar)[,15])
+rel_date_data %>% group_by(chr) %>% summarize(count=n())
+```
+Jedina nekonzistencia sa nachadza v stlpci release_date.Navyse sme pri preverovani teorie, ze stare pesnicky nie su popularne narazili na modernu elektronicku hudbu , co sme aj neskor overili z inych zdrojov(wikipedia, datum umrtia spevaka, youtube release na oficialnom kanali) a zistili sme ze chybne udaje pochadzaju priamo zo spotify. 
+Nazvy autorov a piesni su obacas necitatelne zrejme kvoli pouzitiu inej abecedy. Kedze sa chceme zamerat na popularitu piesni a vplyv numerickych hudobnych atributov na nu, tak dataset mozeme pouzit a nazvy nemusime opravovat. 
 
-data %>%
-  group_by(year) %>%
-  summarise(mean_energy = mean(energy, na.rm = TRUE), mean_loudness = mean(loudness, na.rm = TRUE), mean_popularity = mean(popularity, na.rm = TRUE))
-  #dplyr::summarise(mean_loudness = mean(loudness, na.rm = TRUE))
+```{r}
+library(tidyverse)
+my_plots <- lapply(names(data), function(var_x){
+  p <- 
+    ggplot(data) +
+    aes_string(var_x)
 
+  if(is.numeric(data[[var_x]])) {
+    p <- p + geom_density()
+    plot(p)
+  } 
+
+})
+
+num_data <- subset(data, select = -year) %>% select(where(is.numeric))
+```
+Pri vykresleni rozdeleni sme zistili, ze atributy ako danceability, energy, tempo a valence maju normalne rozdelenie. 
+Rozdelenie pri duration nam ukazalo, ze sa tu nachadza dost outlierov, ktore kedze ide bud o velmi, kratke zanamy alebo dlhe remixy a audioknihy, ktore chceme odstranit. 
+Dalej popularity  ma prevahu nulovych hodnot co vsak nemusi byt zle, alebo si to nemisu ziadat opravu, pretoze je bezne ze sa na vrchole drzia vzdy len komercne najuspesnejsi umelci v porovnani s ktorymi maju zvysne menej zname kapaly a tvorcovia mnohonasobne mensiu popularitu a pocet posluchacov.
+```{r}
+#data %>%
+#  group_by(year) %>%
+#  summarise(mean_energy = mean(energy, na.rm = TRUE), mean_loudness = mean(loudness, na.rm = TRUE), mean_popularity = mean(popularity, na.rm = TRUE))
 maxVal <- function(dataset) sapply(dataset, max, na.rm = TRUE)
 minVal <- function(dataset) sapply(dataset, min, na.rm = TRUE)
 meanVal <- function(dataset) sapply(dataset, mean, na.rm = TRUE)
@@ -34,14 +62,14 @@ colMeans(data[ , nums], na.rm = FALSE)
 apply(data[ , nums],2,median)
 ```
 
-
 ```{r}
 library(corrr)
 data[ , nums] %>% correlate() %>% focus(popularity)
 ```
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+glimpse(num_data)
+library(corrplot)
+corrplot(cor(num_data),type="upper")
+```
+HYPOTEZY:
+Kedze chceme predpovedat co potrtebuje mat piesen aby bola popularna, nasu hypotezu budeme zakladat na datach s ktorymi najviac koreluje. Popularita rastie so zvysujucou sa enrgiou, pozitivitou(valence), hlucnostou(loudness), tanecnostou(danceability) a klesajucou akusticnostou a instrumentalnostou.
