@@ -17,6 +17,14 @@ ZDROJ:https://www.kaggle.com/yamaerenay/spotify-dataset-19212020-160k-tracks
 glimpse(data)
 unique(is.na(data))
 ```
+
+
+```{r}
+length(data$name)
+length(unique(data$name))
+n_occur <- data.frame(table(data$name))
+n_occur[n_occur$Freq > 1,]
+```
 Dataset neobsahuje ziadne NaN hodnoty.
 ```{r}
 rel_date_data = data.frame(chr=apply(data,2,nchar)[,15])
@@ -24,6 +32,15 @@ rel_date_data %>% group_by(chr) %>% summarize(count=n())
 ```
 Jedina nekonzistencia sa nachadza v stlpci release_date.Navyse sme pri preverovani teorie, ze stare pesnicky nie su popularne narazili na modernu elektronicku hudbu , co sme aj neskor overili z inych zdrojov(wikipedia, datum umrtia spevaka, youtube release na oficialnom kanali) a zistili sme ze chybne udaje pochadzaju priamo zo spotify. 
 Nazvy autorov a piesni su obacas necitatelne zrejme kvoli pouzitiu inej abecedy. Kedze sa chceme zamerat na popularitu piesni a vplyv numerickych hudobnych atributov na nu, tak dataset mozeme pouzit a nazvy nemusime opravovat. 
+```{r}
+```
+```{r}
+
+```
+
+
+```{r}
+```
 
 ```{r}
 library(tidyverse)
@@ -63,7 +80,7 @@ medVal <- function(dataset) sapply(dataset, median, na.rm = TRUE)
 modVal <- function(dataset) sapply(dataset, getmode)
 varVal <- function(dataset) sapply(dataset, var, na.rm = TRUE)
 #boxplot
-sapply(num_data, function(x) boxplot(x))
+#sapply(num_data, function(x) boxplot(x))
 
 maxVal(data)
 minVal(data)
@@ -95,3 +112,61 @@ corrplot(cor(num_data),type="upper")
 ```
 HYPOTEZY:
 Kedze chceme predpovedat co potrtebuje mat piesen aby bola popularna, nasu hypotezu budeme zakladat na datach s ktorymi najviac koreluje. Popularita rastie so zvysujucou sa enrgiou, pozitivitou(valence), hlucnostou(loudness), tanecnostou(danceability) a klesajucou akusticnostou a instrumentalnostou.
+```{r}
+boxplot(num_data$energy, main="energy")
+boxplot(num_data$acousticness, main="acousticness")
+boxplot(num_data$loudness, main="loudness")$stats[c(1, 5), ]
+boxplot(num_data$instrumentalnes, main="instrumentalnes")$stats[c(1, 5), ]
+boxplot(num_data$duration_ms, main="duration MS")$stats[c(1, 5), ]
+#value of whiskers later used for threshold
+
+```
+Aby sme si ukázali tvar distribúcie, stredné hodnoty a variabilitu nad atribútmi, na ktoré sme sa chceli zamerať(korelujúce s popularitou) vykreslili sme si ich boxploty. Ďalej sme pomocou thresholdu odstránili príliš krátke a príliš dlhé nahrávky, čím sme odstránili outlierov pozostávajúcich z dlhých mixov, audiokníh a pod. Thresholdové hodnoty sme získali z whiskers boxplotu a ostali nam tak pesničky medzi 17 sekund a cca 7 min. Pri ostatných sme outlierov neodstranovali pretože nevieme zaručiť, že outlierové hodnoty by nám neboli prospešné alebo neboli správne zadané alebo odmerané.
+```{r}
+num_data_thr <- num_data[num_data$duration_ms>17000 & num_data$duration_ms<415093,]
+summary(num_data)
+p <- 
+    ggplot(num_data) +
+    aes_string("duration_ms")
+    p <- p + geom_density()
+    plot(p)
+```
+
+```{r}
+length(num_data)
+print(str(length(num_data$duration_ms)), str(length(num_data_thr$duration_ms)))
+print(str(length(num_data$duration_ms)-length(num_data_thr$duration_ms)))
+p <- 
+    ggplot(num_data_thr) +
+    aes_string("duration_ms")
+    p <- p + geom_density()
+    plot(p)
+```
+Ako môžeme vidieť po odstránení dostaneme rozdelenie v tvare podobnom normálnemu, pričom najčastejšia hodnota je niekde okolo 3,5 minúty. Thresholdom sme odstránili 10057 záznamov.
+
+```{r}
+num_data_thrPop <- num_data_thr[num_data_thr$popularity>0,]
+corrplot(cor(num_data_thrPop),type="upper")
+corrplot(cor(num_data_thr),type="upper")
+#t.test(rnorm(num_data$energy), rnorm(num_data$popularity))
+```
+V rámci experimentov sme skúsili odstrániť dáta, ktoré mali zaznamenanú nulovú popularitu s tým, že sme chceli pozrieť výlučne na nahrávky s nenulovou popularitou a porovnať aká bude ich korelácia. Zamerali sme sa znova hlavne na korelácie medzi popularitou a zvyškom a zmeny boli minimálne čo teda znamená, že môžme nechať všetky nakolko by nám zameranie sa na nenulové nijako nepomohlo.
+
+```{r}
+modelPopEn = lm(num_data_thr$popularity~num_data_thr$energy)
+modelPopAc = lm(num_data_thr$popularity~num_data_thr$acousticness)
+modelPopLo = lm(num_data_thr$popularity~num_data_thr$loudness)
+modelPopIns = lm(num_data_thr$popularity~num_data_thr$instrumentalness)
+pairs(num_data_thr$popularity ~ num_data_thr$energy + num_data_thr$acousticness + num_data_thr$loudness + num_data_thr$instrumentalness, panel=function(x,y){
+  points(x,y)
+  abline(lm(y~x), col='red')})
+```
+
+
+```{r}
+summary(modelPopEn)#ok
+summary(modelPopAc)#ok ale zly vplyv
+summary(modelPopLo)#OK
+summary(modelPopIns)#ok ale zly vplyv
+```
+Na základe regresných modelov zamietame nulovú hypotézu pre všetky navrhnuté hypotézy, kedže z modelov môžeme jasne vidieť, že atribúty a popularita majú medzi sebou vztah (t-value je daleko od 0 a p-value je ovela menšie ako 0.5)
