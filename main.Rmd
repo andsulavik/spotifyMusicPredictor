@@ -2,17 +2,16 @@
 title: "R Notebook"
 output: html_notebook
 ---
-
+sturgesovo pravidlo
 ```{r}
-install.packages("corrplot")
+#install.packages("corrplot")
 ```
 
 ```{r}
 library(dplyr)
-
 data <- read.csv(".\\dataset\\data.csv")
 ```
-
+ZDROJ:https://www.kaggle.com/yamaerenay/spotify-dataset-19212020-160k-tracks
 ```{r}
 glimpse(data)
 unique(is.na(data))
