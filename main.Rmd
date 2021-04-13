@@ -5,6 +5,7 @@ output: html_notebook
 sturgesovo pravidlo
 ```{r}
 #install.packages("corrplot")
+#install.packages("car")
 ```
 
 ```{r}
@@ -47,13 +48,35 @@ Dalej popularity  ma prevahu nulovych hodnot co vsak nemusi byt zle, alebo si to
 #data %>%
 #  group_by(year) %>%
 #  summarise(mean_energy = mean(energy, na.rm = TRUE), mean_loudness = mean(loudness, na.rm = TRUE), mean_popularity = mean(popularity, na.rm = TRUE))
+
+#src: https://www.tutorialspoint.com/r/r_mean_median_mode.htm
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
 maxVal <- function(dataset) sapply(dataset, max, na.rm = TRUE)
 minVal <- function(dataset) sapply(dataset, min, na.rm = TRUE)
 meanVal <- function(dataset) sapply(dataset, mean, na.rm = TRUE)
+standDev <- function(dataset) sapply(dataset, sd, na.rm = TRUE)
+medVal <- function(dataset) sapply(dataset, median, na.rm = TRUE)
+modVal <- function(dataset) sapply(dataset, getmode)
+varVal <- function(dataset) sapply(dataset, var, na.rm = TRUE)
+#boxplot
+sapply(num_data, function(x) boxplot(x))
+
 maxVal(data)
 minVal(data)
 meanVal(data)
+standDev(data)
+medVal(data)
+modVal(data)
+varVal(data)
 
+library(car)
+qqPlot(num_data$valence)
+
+boxplot(num_data$energy, main="energy")
 nums <- unlist(lapply(data, is.numeric))  
 #data[ , nums]
 
