@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_notebook: default
+  pdf_document: default
 ---
 sturgesovo pravidlo
 ```{r}
@@ -153,13 +155,23 @@ corrplot(cor(num_data_thr),type="upper")
 V rámci experimentov sme skúsili odstrániť dáta, ktoré mali zaznamenanú nulovú popularitu s tým, že sme chceli pozrieť výlučne na nahrávky s nenulovou popularitou a porovnať aká bude ich korelácia. Zamerali sme sa znova hlavne na korelácie medzi popularitou a zvyškom a zmeny boli minimálne čo teda znamená, že môžme nechať všetky nakolko by nám zameranie sa na nenulové nijako nepomohlo.
 
 ```{r}
-modelPopEn = lm(num_data_thr$popularity~num_data_thr$energy)
-modelPopAc = lm(num_data_thr$popularity~num_data_thr$acousticness)
-modelPopLo = lm(num_data_thr$popularity~num_data_thr$loudness)
-modelPopIns = lm(num_data_thr$popularity~num_data_thr$instrumentalness)
-pairs(num_data_thr$popularity ~ num_data_thr$energy + num_data_thr$acousticness + num_data_thr$loudness + num_data_thr$instrumentalness, panel=function(x,y){
+dt = sort(sample(nrow(num_data_thr), nrow(num_data_thr)*.8))
+train<-num_data_thr[dt,]
+test<-num_data_thr[-dt,]
+```
+
+
+```{r}
+modelPopEn = lm(popularity~energy, data = train)
+modelPopAc = lm(popularity~acousticness, data = train)
+modelPopLo = lm(popularity~loudness, data = train)
+modelPopIns = lm(popularity~instrumentalness, data = train)
+pairs(train$popularity ~ train$energy + train$acousticness + train$loudness + train$instrumentalness, panel=function(x,y){
   points(x,y)
   abline(lm(y~x), col='red')})
+```
+```{r}
+modelPop4 = lm(train$popularity~train$energy + train$acousticness + train$loudness + train$instrumentalness)
 ```
 
 
@@ -168,5 +180,182 @@ summary(modelPopEn)#ok
 summary(modelPopAc)#ok ale zly vplyv
 summary(modelPopLo)#OK
 summary(modelPopIns)#ok ale zly vplyv
+summary(modelPop4)
 ```
 Na základe regresných modelov zamietame nulovú hypotézu pre všetky navrhnuté hypotézy, kedže z modelov môžeme jasne vidieť, že atribúty a popularita majú medzi sebou vztah (t-value je daleko od 0 a p-value je ovela menšie ako 0.5)
+
+Zaroveň vidime, že chyba je približne na úrovni od 19.5 do 21 čo v našom prípade znamená taktiež percentuálna chyba kedže popularitu máme v intervale od 0 do 100. Preto sme sa rozhodli vyskúšať aj kvadraticku regresiu.
+```{r}
+train$energy2 <- train$energy^2
+train$acousticness2 <- train$acousticness^2
+train$loudness2 <- train$loudness^2
+train$instrumentalness2 <- train$instrumentalness^2
+
+modelQPopEn = lm(popularity~energy+energy2, data = train)
+modelQPopAc = lm(popularity~acousticness+acousticness2, data = train)
+modelQPopLo = lm(popularity~loudness+loudness2, data = train)
+modelQPopIns = lm(popularity~instrumentalness+instrumentalness2, data = train)
+pairs(train$popularity ~ train$energy2 + train$acousticness2 + train$loudness2 + train$instrumentalness2, panel=function(x,y){
+  points(x,y)
+  abline(lm(y~x), col='red')})
+```
+
+```{r}
+summary(modelQPopEn)#ok
+summary(modelQPopAc)#ok ale zly vplyv
+summary(modelQPopLo)#OK
+summary(modelQPopIns)#ok ale zly vplyv
+```
+Kvadratická regresia ako možeme vidieť vyššie niekde mierne zlepšila no niekde zase mierne zhoršila chybu. Aj keď sa nám nepodarilo tieto chyby výrazne znížit rozhodli sme sa pre každú hypotézu tieto dve metódy porovnať aj s predikovanými hodnotami.
+
+```{r}
+energyValues <- seq(0, 1, 0.01)
+
+energyQPredict <- predict(modelQPopEn,newdata = list(energy=energyValues, energy2 = energyValues^2))
+
+energyPredict <- predict(modelPopEn,newdata = test)
+
+plot(test$energy, test$popularity)
+
+lines(energyValues, energyQPredict, col='green')
+
+lines(test$energy, energyPredict, col='red')
+```
+Zelena čiara kvadratický model má chybu 20.48 a červený lineárny model 20.65. Oba modely predikujú v najhustejšie osadenom priestore, no ako môžeme vidieť kvadratický model viac kopíruje tvar dát čo sa ukázalo aj na jeho nižšej chybe. Data sú pravdepodobne príliš rozptýlené aby sa mohol model lepšie nafitovať.
+
+```{r}
+acousticnessValues <- seq(0, 1, 0.01)
+
+acousticnessQPredict <- predict(modelQPopAc,newdata = list(acousticness=acousticnessValues, acousticness2 = acousticnessValues^2))
+
+acousticnessPredict <- predict(modelPopAc,newdata = test)
+
+plot(test$acousticness, test$popularity)
+
+lines(acousticnessValues, acousticnessQPredict, col='green')
+
+lines(test$acousticness, acousticnessPredict, col='red')
+```
+Zelena čiara kvadratický model má chybu 19.54 a červený lineárny model 20.02. Oba modely predikujú v najhustejšie osadenom priestore, no ako môžeme vidieť kvadratický model viac kopíruje tvar dát čo sa znovu ukázalo aj na jeho nižšej chybe.
+
+
+```{r}
+loudnessValues <- seq(min(test$loudness), max(test$loudness), 0.01)
+
+loudnessQPredict <- predict(modelQPopLo,newdata = list(loudness=loudnessValues, loudness2 = loudnessValues^2))
+
+loudnessPredict <- predict(modelPopLo,newdata = test)
+
+plot(test$loudness, test$popularity)
+
+lines(loudnessValues, loudnessQPredict, col='green')
+
+lines(test$loudness, loudnessPredict, col='red')
+```
+Zelena krivka kvadratický model má chybu 20.44 a červený lineárny model 20.62. Lineárny model podľa grafu vyzerá tento krát lepšie no kvadratický mal aj napriek tomu nižšiu chybu čo je zrejme zapríčinené zhodou aj v riedkých datach v ľavej polovici grafu.
+
+```{r}
+instrumentalnessValues <- seq(min(test$instrumentalness), max(test$instrumentalness), 0.01)
+
+instrumentalnessQPredict <- predict(modelQPopIns,newdata = list(instrumentalness=instrumentalnessValues, instrumentalness2 = instrumentalnessValues^2))
+
+instrumentalnessPredict <- predict(modelPopIns,newdata = test)
+
+plot(test$instrumentalness, test$popularity)
+
+lines(instrumentalnessValues, instrumentalnessQPredict, col='green')
+
+lines(test$instrumentalness, instrumentalnessPredict, col='red')
+```
+Zelena krivka kvadratický model má chybu 20.99 a červený lineárny model 21.03. Pri tomto grafe môžeme vidieť, že dátam nevyhovuje ani jeden z modelov a majú aj vyššiu chybu oproti ostatným. Zrejme by bola vhodnejšia regresia zložitejšou funkciou.
+
+
+
+BAYES
+
+
+```{r}
+#install.packages("R2OpenBUGS")
+#install.packages("rjags")
+#install.packages("coda")
+#install.packages("MCMCvis")
+library(R2OpenBUGS)
+library(rjags)
+library(coda)
+library(MCMCvis)
+
+mod = function(){
+  #priors
+  b0~dnorm(0,.001)
+  Z~dnorm(0,.001)
+
+  sigma~dunif(0,100)
+  tau<-1/(sigma*sigma)
+  
+  
+  #likelihood
+  for(i in 1:length(energy)){
+    mu[i]<-b0+100*exp(-Z*energy[i])
+    Pop[i]~dnorm(mu[i], tau)
+    Pop_pred[i]~dnorm(mu[i], tau)
+  }
+
+}
+```
+
+```{r}
+# write model
+model.file="model.txt"
+write.model(mod,model.file)
+
+# no initial values
+inits<-NULL
+
+# what parameters we want to track
+params = c("tau","Z", "b0", "Pop_pred")
+
+## hyperparameters
+# number of iterations
+ni = 1000
+# burn in interval
+nb = 100
+# thinning interval
+nt = 1
+# number of chains
+nc = 3
+
+dataBay <- subset(test, select = c("popularity","energy"))[sample(nrow(test), 5000),]
+
+# compile model
+jmod = jags.model(file = model.file, data = dataBay, n.chains = nc, inits = inits, n.adapt = 1000)
+
+# iterate through jmod for the extent of the burn-in
+update(jmod, n.iter=nb, by=1)
+
+# draw samples from the posterior for params, given MCMC hyperparameters
+post = coda.samples(jmod, params, n.iter = ni, thin = nt)
+
+# diagnostic evaluation of posterior samples
+MCMCtrace(post, params = c('b0','Z'), pdf=F)
+
+# objectively assess convergence with gelmans diagnostic
+#gelman.diag(post)
+
+# get summary of posterior samples for two parameters
+MCMCsummary(post, params = c('b0','Z'), digits=2)
+```
+```{r}
+# get samples from posteriors
+samples = jags.samples(jmod,c('b0', 'Z', 'Pop_pred'), length(dataBay$energy))
+```
+
+
+```{r}
+# take the mean of each group of samples
+posterior_means = apply(samples$Pop_pred,1,mean)
+
+# plot posterior means versus observed values
+plot(dataBay$popularity, posterior_means, ylab='Predicted Popularity', xlab='Observed Popularity')
+lines(seq(1,3500),seq(1,3500), col='red', lwd=2, cex=3)
+```
+Predikcia pomocou bayesa sa nám nevydarila, vznikli nám hodnody veľmi vzdialené od reálnych hodnôt(>4e+56). 
